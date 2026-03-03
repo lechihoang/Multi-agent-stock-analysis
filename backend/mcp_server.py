@@ -32,7 +32,7 @@ from backend.tools.stock_data import (
 from backend.tools.entity_extraction import extract_company_name_core
 from backend.tools.ticker_lookup import lookup_ticker_core
 
-from backend.orchestrator.mcp_orchestrator import MCPOrchestrator
+from backend.orchestrator.orchestrator import MCPOrchestrator
 from backend.orchestrator.query_analyzer import QueryAnalyzer
 
 logging.basicConfig(
@@ -63,7 +63,6 @@ def research_stock(query: str) -> dict:
             return {
                 "success": True,
                 "ticker": result.ticker,
-                "query_type": result.query_type.value,
                 "report": result.structured_report.model_dump(),
                 "text_report": result.final_report,
                 "execution_time_seconds": result.total_execution_time,
@@ -308,7 +307,6 @@ def parse_stock_query(query: str) -> dict:
             "success": True,
             "original_query": query,
             "ticker": intent.ticker,
-            "query_type": intent.query_type.value,
             "agents_needed": intent.agents_needed,
             "timestamp": datetime.now().isoformat(),
         }

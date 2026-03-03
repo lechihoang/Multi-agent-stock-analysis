@@ -1,5 +1,4 @@
 from typing import Optional
-import pandas as pd
 import os
 
 from tavily import TavilyClient
@@ -12,7 +11,7 @@ def safe_float(value) -> Optional[float]:
     if value is None:
         return None
     if isinstance(value, (int, float)):
-        if pd.isna(value):
+        if value != value:
             return None
         return float(value)
     return None
@@ -31,10 +30,3 @@ def get_tavily_client() -> TavilyClient:
             raise ValueError("TAVILY_API_KEY environment variable is required")
         _tavily_client = TavilyClient(api_key=api_key)
     return _tavily_client
-
-
-__all__ = [
-    "safe_float",
-    "safe_int",
-    "get_tavily_client",
-]

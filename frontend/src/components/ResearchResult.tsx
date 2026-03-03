@@ -240,7 +240,23 @@ export default function ResearchResult({
             td:bg-white td:text-primary-700 td:px-4 td:py-2 td:border td:border-accent-blue/20
             tr:last-child td:first-child:rounded-bl-lg tr:last-child td:last-child:rounded-br-lg
           ">
-            <ReactMarkdown>{report}</ReactMarkdown>
+            <ReactMarkdown 
+              components={{
+                p: ({node, children}) => {
+                  const text = typeof children === 'string' ? children : children?.toString() || ''
+                  if (text.toLowerCase().includes('informational purposes') || text.toLowerCase().includes('investment advice')) {
+                    return (
+                      <p className="!bg-primary-50 !text-primary-600 !border-l-4 !border-l-warning !px-4 !py-3 !my-4 !rounded-r">
+                        {children}
+                      </p>
+                    )
+                  }
+                  return <p>{children}</p>
+                }
+              }}
+            >
+              {report}
+            </ReactMarkdown>
           </div>
         </div>
       )}

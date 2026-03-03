@@ -7,27 +7,7 @@ from backend.models.outputs import (
     SocialMentionsResponse,
     SearchResult,
 )
-from backend.tools.utils import get_tavily_client
-
-
-def search_sentiment(query: str, max_results: int = 10) -> dict:
-    try:
-        client = get_tavily_client()
-        results = client.search(
-            query=query,
-            max_results=max_results,
-            include_answer=True,
-            include_raw_content=False,
-            include_images=False,
-        )
-        return {
-            "success": True,
-            "results": results.get("results", []),
-            "answer": results.get("answer", ""),
-            "query": query,
-        }
-    except Exception as e:
-        return {"success": False, "error": str(e), "query": query}
+from backend.tools.tavily_search import search_tavily
 
 
 def parse_results_to_search_results(results: list, max_items: int = 3) -> List[SearchResult]:
@@ -51,7 +31,7 @@ def analyze_stock_sentiment_core(ticker: str) -> StockSentimentResponse:
         trending_topics: List[str] = []
 
         reddit_query = f"{ticker} stock reddit sentiment analysis wallstreetbets"
-        reddit_results = search_sentiment(reddit_query, max_results=5)
+        reddit_results = search_tavily(reddit_query, max_results=5)
 
         if reddit_results["success"]:
             sources.append(
@@ -65,7 +45,7 @@ def analyze_stock_sentiment_core(ticker: str) -> StockSentimentResponse:
             )
 
         twitter_query = f"{ticker} stock twitter sentiment trending"
-        twitter_results = search_sentiment(twitter_query, max_results=5)
+        twitter_results = search_tavily(twitter_query, max_results=5)
 
         if twitter_results["success"]:
             sources.append(
@@ -79,7 +59,7 @@ def analyze_stock_sentiment_core(ticker: str) -> StockSentimentResponse:
             )
 
         news_query = f"{ticker} stock investor sentiment bullish bearish analysis"
-        news_results = search_sentiment(news_query, max_results=5)
+        news_results = search_tavily(news_query, max_results=5)
 
         if news_results["success"]:
             sources.append(
@@ -93,7 +73,7 @@ def analyze_stock_sentiment_core(ticker: str) -> StockSentimentResponse:
             )
 
         trending_query = f"{ticker} stock trending topics discussions 2024"
-        trending_results = search_sentiment(trending_query, max_results=5)
+        trending_results = search_tavily(trending_query, max_results=5)
 
         if trending_results["success"]:
             for item in trending_results["results"][:3]:
@@ -123,35 +103,17 @@ def get_social_mentions_core(ticker: str, platform: str = "all") -> SocialMentio
 
         if platform in ["reddit", "all"]:
             reddit_query = f"{ticker} stock reddit discussion DD analysis"
-            results = search_sentiment(reddit_query, max_results=8)
+            results = search_tavily(reddit_query, max_results=8)
 
             if results["success"]:
-                for item in results["results"][:5]:
-                    content = item.get("content", "")[:300] + "..." if item.get("content") else ""
-                    reddit_mentions.append(
-                        SearchResult(
-                            title=item.get("title", "No title"),
-                            url=item.get("url", ""),
-                            content=content,
-                            score=item.get("score"),
-                        )
-                    )
+                reddit_mentions = parse_results_to_search_results(results["results"], max_items=5)
 
         if platform in ["twitter", "all"]:
             twitter_query = f"{ticker} stock twitter cashtag discussion"
-            results = search_sentiment(twitter_query, max_results=8)
+            results = search_tavily(twitter_query, max_results=8)
 
             if results["success"]:
-                for item in results["results"][:5]:
-                    content = item.get("content", "")[:300] + "..." if item.get("content") else ""
-                    twitter_mentions.append(
-                        SearchResult(
-                            title=item.get("title", "No title"),
-                            url=item.get("url", ""),
-                            content=content,
-                            score=item.get("score"),
-                        )
-                    )
+                twitter_mentions = parse_results_to_search_results(results["results"], max_items=5)
 
         return SocialMentionsResponse(
             success=True,

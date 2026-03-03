@@ -10,8 +10,6 @@ class Settings(BaseSettings):
 
     tavily_api_key: str
 
-    database_url: str = "sqlite:///./stock_research.db"
-
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     vite_api_url: str = "http://localhost:8000"

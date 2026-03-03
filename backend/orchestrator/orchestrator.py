@@ -4,8 +4,8 @@ import warnings
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
-from crewai import Agent, Task, Crew, Process
-from backend.orchestrator.query_analyzer import QueryAnalyzer, QueryIntent, QueryType
+from crewai import Agent, Task, Crew
+from backend.orchestrator.query_analyzer import QueryAnalyzer, QueryIntent
 from backend.crew.llm_config import get_llm
 from backend.tools.tavily_search import tavily_search
 from backend.tools.stock_data import get_stock_price, get_stock_financials, get_stock_price_history
@@ -45,9 +45,8 @@ class AgentResult:
 class OrchestratorResult:
     success: bool
     ticker: str
-    query_type: QueryType
     agent_results: List[AgentResult]
-    structured_report: ResearchReport
+    structured_report: Optional[ResearchReport] = None
     final_report: str = ""
     total_execution_time: float = 0.0
     error: Optional[str] = None
@@ -65,7 +64,6 @@ class MCPOrchestrator:
             backstory="You are an expert at analyzing stock prices and trading data. You excel at extracting current price information, volume data, and market statistics.",
             tools=[get_stock_price, get_stock_price_history],
             llm=self.llm,
-            verbose=False,
         )
 
     def create_financial_agent(self) -> Agent:
@@ -75,7 +73,6 @@ class MCPOrchestrator:
             backstory="You are a financial analyst with deep expertise in reading financial statements, analyzing ratios, and evaluating company fundamentals.",
             tools=[get_stock_financials],
             llm=self.llm,
-            verbose=False,
         )
 
     def create_news_agent(self) -> Agent:
@@ -85,7 +82,6 @@ class MCPOrchestrator:
             backstory="You are a news analyst specialized in finding and summarizing the latest developments affecting stocks and companies.",
             tools=[tavily_search],
             llm=self.llm,
-            verbose=False,
         )
 
     def create_market_agent(self) -> Agent:
@@ -95,7 +91,6 @@ class MCPOrchestrator:
             backstory="You are a market trend analyst with expertise in technical analysis, chart patterns, and identifying market trends.",
             tools=[get_stock_price_history, tavily_search],
             llm=self.llm,
-            verbose=False,
         )
 
     def create_sentiment_agent(self) -> Agent:
@@ -105,7 +100,6 @@ class MCPOrchestrator:
             backstory="You are a sentiment analyst who specializes in gauging market mood through social media trends, news tone, and investor sentiment indicators.",
             tools=[analyze_stock_sentiment, get_social_mentions, tavily_search],
             llm=self.llm,
-            verbose=False,
         )
 
     def create_risk_agent(self) -> Agent:
@@ -115,7 +109,6 @@ class MCPOrchestrator:
             backstory="You are a risk analyst with deep expertise in statistical risk metrics, VaR calculations, and portfolio risk assessment.",
             tools=[calculate_risk_metrics, get_stock_price_history],
             llm=self.llm,
-            verbose=False,
         )
 
     def create_synthesis_agent(self) -> Agent:
@@ -125,7 +118,6 @@ class MCPOrchestrator:
             backstory="You are an investment report editor who excels at synthesizing complex financial analysis into clear, actionable research reports.",
             tools=[],
             llm=self.llm,
-            verbose=False,
         )
 
     def get_agent_factory(self, agent_type: str):
@@ -231,9 +223,6 @@ class MCPOrchestrator:
             crew = Crew(
                 agents=[agent],
                 tasks=[task],
-                process=Process.sequential,
-                verbose=False,
-                memory=False,
             )
             crew_result = crew.kickoff(inputs={"ticker": ticker})
             structured_output = self.extract_structured_output(crew_result, agent_type)
@@ -279,25 +268,24 @@ class MCPOrchestrator:
     def compile_structured_context(
         self, agent_results: List[AgentResult]
     ) -> Dict[str, AgentOutput]:
-        context: Dict[str, AgentOutput] = {}
-        for result in agent_results:
-            if result.agent_name == "price":
-                context["price_data"] = result.structured_output
-            elif result.agent_name == "financial":
-                context["financial_metrics"] = result.structured_output
-            elif result.agent_name == "news":
-                context["news_analysis"] = result.structured_output
-            elif result.agent_name == "market":
-                context["market_trends"] = result.structured_output
-            elif result.agent_name == "sentiment":
-                context["sentiment_data"] = result.structured_output
-            elif result.agent_name == "risk":
-                context["risk_assessment"] = result.structured_output
-        return context
+        mapping = {
+            "price": "price_data",
+            "financial": "financial_metrics",
+            "news": "news_analysis",
+            "market": "market_trends",
+            "sentiment": "sentiment_data",
+            "risk": "risk_assessment",
+        }
+        result = {}
+        for r in agent_results:
+            key = mapping.get(r.agent_name)
+            if key:
+                result[key] = r.structured_output
+        return result
 
     def synthesize_report(
         self, ticker: str, agent_results: List[AgentResult]
-    ) -> tuple[str, ResearchReport]:
+    ) -> tuple[str, Optional[ResearchReport]]:
         context = self.compile_structured_context(agent_results)
         import json
 
@@ -307,100 +295,25 @@ class MCPOrchestrator:
         context_str = json.dumps(context_json, indent=2)
         synthesis_agent = self.create_synthesis_agent()
         synthesis_task = Task(
-            description="Synthesize all research findings into a comprehensive investment report",
-            expected_output=f"Detailed comprehensive investment research report for {ticker} with all available sections fully populated",
+            description=f"""Synthesize all research findings into a comprehensive investment report in markdown format.
+            Include: Executive Summary, Key Metrics (current price, market cap, P/E ratio, dividend yield),
+            Price Analysis, Financial Analysis, News Analysis, Market Analysis, Sentiment Analysis,
+            Risk Analysis, Investment Outlook, Risk Factors, Opportunities, Recommendation (with rating, 
+            price target, suitable for investor types, time horizon).
+
+            Context from agents:
+            {context_str}""",
+            expected_output="A detailed investment research report in clean markdown format. Start directly with '# ' (the title). Do NOT include any intro phrases like 'I can give you a great answer' or 'Sure, here's'. Just output the markdown report.",
             agent=synthesis_agent,
-            output_pydantic=ResearchReport,
+            markdown=True,
         )
         crew = Crew(
             agents=[synthesis_agent],
             tasks=[synthesis_task],
-            process=Process.sequential,
-            verbose=False,
-            memory=False,
         )
         crew_result = crew.kickoff(inputs={"ticker": ticker})
-        structured_report = self.extract_structured_output(crew_result, "synthesis")
-        if not isinstance(structured_report, ResearchReport):
-            raise StructuredOutputError(
-                f"Synthesis did not return ResearchReport, got {type(structured_report).__name__}"
-            )
-        text_report = self.structured_report_to_markdown(structured_report)
-        return text_report, structured_report
-
-    def structured_report_to_markdown(self, report: ResearchReport) -> str:
-        lines = []
-        lines.append(f"# {report.ticker} Investment Research Report")
-        lines.append(f"*Generated: {report.report_date}*")
-        lines.append("")
-        lines.append("## Executive Summary")
-        lines.append(report.executive_summary)
-        lines.append("")
-        lines.append("## Key Metrics")
-        if report.current_price:
-            lines.append(f"- **Current Price:** ${report.current_price:,.2f}")
-        if report.market_cap:
-            lines.append(f"- **Market Cap:** ${report.market_cap:,.0f}")
-        if report.pe_ratio:
-            lines.append(f"- **P/E Ratio:** {report.pe_ratio:.2f}")
-        if report.dividend_yield:
-            lines.append(f"- **Dividend Yield:** {report.dividend_yield:.2f}%")
-        lines.append("")
-        lines.append("## Analysis Highlights")
-        lines.append("")
-        lines.append("### Price Analysis")
-        lines.append(report.price_analysis_summary)
-        lines.append("")
-        lines.append("### Financial Analysis")
-        lines.append(report.financial_analysis_summary)
-        lines.append("")
-        lines.append("### News Analysis")
-        lines.append(report.news_analysis_summary)
-        lines.append("")
-        lines.append("### Market Analysis")
-        lines.append(report.market_analysis_summary)
-        lines.append("")
-        if report.sentiment_analysis_summary:
-            lines.append("### Sentiment Analysis")
-            lines.append(report.sentiment_analysis_summary)
-            lines.append("")
-        if report.risk_analysis_summary:
-            lines.append("### Risk Analysis")
-            lines.append(report.risk_analysis_summary)
-            lines.append("")
-        lines.append("## Investment Outlook")
-        lines.append(
-            f"**Overall Outlook:** {report.investment_outlook.value.replace('_', ' ').title()}"
-        )
-        lines.append("")
-        lines.append(report.outlook_rationale)
-        lines.append("")
-        if report.risk_factors:
-            lines.append("## Risk Factors")
-            for risk in report.risk_factors:
-                lines.append(f"- {risk}")
-            lines.append("")
-        if report.opportunities:
-            lines.append("## Opportunities")
-            for opp in report.opportunities:
-                lines.append(f"- {opp}")
-            lines.append("")
-        recommendation_text = report.recommendation.strip()
-        if recommendation_text.startswith("**") and recommendation_text.endswith("**"):
-            recommendation_text = recommendation_text[2:-2]
-
-        lines.append("## Recommendation")
-        lines.append(f"- **Rating:** {recommendation_text}")
-        if report.price_target:
-            lines.append(f"- **Price Target:** ${report.price_target:,.2f}")
-        if report.suitable_for:
-            lines.append(f"- **Suitable for:** {', '.join(report.suitable_for)}")
-        if report.time_horizon:
-            lines.append(f"- **Time Horizon:** {report.time_horizon}")
-        lines.append("")
-        lines.append("---")
-        lines.append(f"*{report.disclaimer}*")
-        return "\n".join(lines)
+        text_report = str(crew_result)
+        return text_report, None
 
     async def execute(self, query: str) -> OrchestratorResult:
         start_time = datetime.now()
@@ -408,9 +321,7 @@ class MCPOrchestrator:
         try:
             logger.info(f"Analyzing query: {query}")
             intent = self.query_analyzer.analyze(query)
-            logger.info(
-                f"Intent: ticker={intent.ticker}, type={intent.query_type}, agents={intent.agents_needed}"
-            )
+            logger.info(f"Intent: ticker={intent.ticker}, agents={intent.agents_needed}")
             logger.info(f"Running {len(intent.agents_needed)} agents in parallel...")
             agent_results = await self.run_agents_parallel(intent.agents_needed, intent.ticker)
             logger.info("Synthesizing final report...")
@@ -420,7 +331,6 @@ class MCPOrchestrator:
             return OrchestratorResult(
                 success=True,
                 ticker=intent.ticker,
-                query_type=intent.query_type,
                 agent_results=agent_results,
                 structured_report=structured_report,
                 final_report=text_report,
@@ -440,6 +350,3 @@ class MCPOrchestrator:
 
     def execute_sync(self, query: str) -> OrchestratorResult:
         return asyncio.run(self.execute(query))
-
-
-__all__ = ["MCPOrchestrator", "OrchestratorResult", "AgentResult", "StructuredOutputError"]

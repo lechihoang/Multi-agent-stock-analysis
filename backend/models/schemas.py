@@ -41,7 +41,6 @@ class ResearchResponse(BaseModel):
     query: str
     ticker: str
     status: JobStatus
-    query_type: Optional[str] = None
     report: Optional[str] = None
     execution_time: Optional[float] = None
     error: Optional[str] = None

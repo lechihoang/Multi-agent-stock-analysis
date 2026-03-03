@@ -8,6 +8,7 @@ def get_llm(
     model: Optional[str] = None,
     temperature: Optional[float] = None,
     max_tokens: Optional[int] = None,
+    max_retries: int = 2,
 ) -> LLM:
     return LLM(
         model=model or settings.crewai_model,
@@ -15,7 +16,5 @@ def get_llm(
         max_tokens=max_tokens or settings.llm_max_tokens,
         top_p=settings.llm_top_p,
         api_key=settings.nvidia_api_key,
+        max_retries=max_retries,
     )
-
-
-__all__ = ["get_llm"]

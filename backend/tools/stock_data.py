@@ -85,37 +85,11 @@ def get_stock_price(ticker: str) -> PriceData:
 
 def get_stock_price_core(ticker: str) -> dict:
     try:
-        stock = yf.Ticker(ticker)
-        info = stock.info
-
-        current_price = info.get("currentPrice") or info.get("regularMarketPrice")
-        previous_close = info.get("previousClose")
-
-        change = None
-        change_percent = None
-        if current_price and previous_close:
-            change = current_price - previous_close
-            change_percent = (change / previous_close) * 100
-
-        return {
-            "success": True,
-            "ticker": ticker.upper(),
-            "current_price": current_price,
-            "previous_close": previous_close,
-            "day_high": info.get("dayHigh"),
-            "day_low": info.get("dayLow"),
-            "day_open": info.get("open"),
-            "volume": info.get("volume"),
-            "avg_volume": info.get("averageVolume"),
-            "market_cap": info.get("marketCap"),
-            "week_52_high": info.get("fiftyTwoWeekHigh"),
-            "week_52_low": info.get("fiftyTwoWeekLow"),
-            "change": change,
-            "change_percent": change_percent,
-            "currency": info.get("currency", "USD"),
-            "timestamp": datetime.now().isoformat(),
-        }
-
+        price_data = get_stock_price_data(ticker)
+        result = price_data.model_dump()
+        result["success"] = True
+        result["timestamp"] = datetime.now().isoformat()
+        return result
     except Exception as e:
         return {
             "success": False,
@@ -127,43 +101,48 @@ def get_stock_price_core(ticker: str) -> dict:
 
 def get_financial_metrics_core(ticker: str) -> dict:
     try:
-        stock = yf.Ticker(ticker)
-        info = stock.info
-
-        return {
+        financial_data = get_stock_financials_core(ticker)
+        if not financial_data.success:
+            return {
+                "success": False,
+                "ticker": ticker.upper(),
+                "error": financial_data.error,
+                "timestamp": datetime.now().isoformat(),
+            }
+        result = {
             "success": True,
-            "ticker": ticker.upper(),
-            "company_name": info.get("shortName"),
-            "sector": info.get("sector"),
-            "industry": info.get("industry"),
-            "pe_ratio": info.get("trailingPE"),
-            "forward_pe": info.get("forwardPE"),
-            "peg_ratio": info.get("pegRatio"),
-            "price_to_book": info.get("priceToBook"),
-            "price_to_sales": info.get("priceToSalesTrailing12Months"),
-            "enterprise_value": info.get("enterpriseValue"),
-            "profit_margin": info.get("profitMargins"),
-            "operating_margin": info.get("operatingMargins"),
-            "gross_margin": info.get("grossMargins"),
-            "return_on_equity": info.get("returnOnEquity"),
-            "return_on_assets": info.get("returnOnAssets"),
-            "revenue_growth": info.get("revenueGrowth"),
-            "earnings_growth": info.get("earningsGrowth"),
-            "revenue": info.get("totalRevenue"),
-            "earnings_per_share": info.get("trailingEps"),
-            "dividend_yield": info.get("dividendYield"),
-            "dividend_rate": info.get("dividendRate"),
-            "payout_ratio": info.get("payoutRatio"),
-            "debt_to_equity": info.get("debtToEquity"),
-            "current_ratio": info.get("currentRatio"),
-            "quick_ratio": info.get("quickRatio"),
-            "total_debt": info.get("totalDebt"),
-            "recommendation": info.get("recommendationKey"),
-            "target_mean_price": info.get("targetMeanPrice"),
-            "number_of_analysts": info.get("numberOfAnalystOpinions"),
+            "ticker": financial_data.ticker,
+            "company_name": financial_data.company_name,
+            "sector": financial_data.sector,
+            "industry": financial_data.industry,
+            "pe_ratio": financial_data.trailing_pe,
+            "forward_pe": financial_data.forward_pe,
+            "peg_ratio": financial_data.peg_ratio,
+            "price_to_book": financial_data.price_to_book,
+            "price_to_sales": financial_data.price_to_sales,
+            "enterprise_value": financial_data.enterprise_value,
+            "profit_margin": financial_data.profit_margin,
+            "operating_margin": financial_data.operating_margin,
+            "gross_margin": financial_data.gross_margin,
+            "return_on_equity": financial_data.return_on_equity,
+            "return_on_assets": financial_data.return_on_assets,
+            "revenue_growth": financial_data.revenue_growth,
+            "earnings_growth": financial_data.earnings_growth,
+            "revenue": financial_data.revenue,
+            "earnings_per_share": financial_data.revenue_per_share,
+            "dividend_yield": financial_data.dividend_yield,
+            "dividend_rate": financial_data.dividend_rate,
+            "payout_ratio": financial_data.payout_ratio,
+            "debt_to_equity": financial_data.debt_to_equity,
+            "current_ratio": financial_data.current_ratio,
+            "quick_ratio": financial_data.quick_ratio,
+            "total_debt": financial_data.total_debt,
+            "recommendation": financial_data.recommendation,
+            "target_mean_price": financial_data.target_mean_price,
+            "number_of_analysts": financial_data.num_analysts,
             "timestamp": datetime.now().isoformat(),
         }
-
+        return result
     except Exception as e:
         return {
             "success": False,

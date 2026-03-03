@@ -57,23 +57,17 @@ def search_tavily_core(query: str, max_results: int = 10) -> TavilySearchRespons
 
 
 def search_tavily(query: str, max_results: int = 10) -> dict:
-    try:
-        client = get_tavily_client()
-        results = client.search(
-            query=query,
-            max_results=max_results,
-            include_answer=True,
-            include_raw_content=False,
-            include_images=False,
-        )
-        return {
-            "success": True,
-            "results": results.get("results", []),
-            "answer": results.get("answer", ""),
-            "query": query,
-        }
-    except Exception as e:
-        return {"success": False, "error": str(e), "query": query}
+    response = search_tavily_core(query, max_results)
+    return {
+        "success": response.success,
+        "results": [
+            {"title": r.title, "url": r.url, "content": r.content, "score": r.score}
+            for r in response.results
+        ],
+        "answer": response.answer,
+        "query": response.query,
+        "error": response.error,
+    }
 
 
 @tool("Tavily Search")

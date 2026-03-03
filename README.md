@@ -5,71 +5,77 @@ AI-powered multi-agent stock research system using **CrewAI** and **NVIDIA NIM**
 ## Features
 
 - **Multi-Agent System**: 6 specialized AI agents running in parallel via CrewAI
-- **Natural Language Queries**: "How is Apple doing?" → automatic entity recognition
+- **Natural Language Queries**: ask in plain English like "How is Apple doing?" and the system will understand which company you mean
 - **Structured Outputs**: Type-safe Pydantic models for all agent responses
-- **Real-time Data**: yfinance for stock data, Tavily for news search
-- **Production Ready**: FastAPI backend, rate limiting, Docker support
+- **Real-time Data**: fetch stock prices, financial data from yfinance; search latest news from Tavily API; gather investor discussions from Reddit, Twitter, Stocktwits
 - **Async Processing**: Background task processing with job status tracking
+
+## Demo
+
+![Demo](docs/demo.gif)
 
 ## Architecture
 
+<div align="center">
+
+```mermaid
+flowchart TB
+    User["User Query<br/>Apple?"]
+    
+    Query["LLM extracts company name from query<br/>Yahoo Finance looks up ticker symbol<br/>AAPL"]
+    
+    subgraph Agents["6 Parallel Agents"]
+        Price["Price: compute current price, daily volume, market cap<br/>use yfinance (stock data API)"]
+        Financial["Financial: compute P/E ratio, EPS, revenue, dividends<br/>use yfinance"]
+        News["News: search latest news, company developments<br/>use Tavily (news search API)"]
+        Market["Market: compute market trends, technical indicators (RSI, MACD)<br/>use yfinance + Tavily"]
+        Sentiment["Sentiment: gauge investor mood from social media & news<br/>use Tavily + social platforms"]
+        Risk["Risk: compute volatility, Value at Risk (VaR), risk metrics<br/>use yfinance"]
+    end
+    
+    Synthesis["Synthesis: gather all results from 6 agents<br/>compile into research report"]
+    Result["Final Report"]
+    
+    User --> Query --> Price & Financial & News & Market & Sentiment & Risk
+    Price & Financial & News & Market & Sentiment & Risk --> Synthesis --> Result
 ```
-                        FASTAPI BACKEND
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                  │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │                    REST API Layer                        │   │
-│   │   POST /api/research    GET /api/research/{job_id}       │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                              │                                  │
-│                              ▼                                  │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │              MCPOrchestrator                             │   │
-│   │   - QueryAnalyzer (entity extraction, intent detection) │   │
-│   │   - Job status management                                │   │
-│   │   - Rate limiting                                       │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                              │                                  │
-└──────────────────────────────┼──────────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    CREWAI ORCHESTRATOR                          │
-│                                                                  │
-│   ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │
-│   │  Price   │ │Financial │ │   News   │ │  Market  │       │
-│   │  Agent   │ │  Agent   │ │  Agent   │ │  Agent   │       │
-│   └──────────┘ └──────────┘ └──────────┘ └──────────┘       │
-│   ┌──────────┐ ┌──────────┐                                   │
-│   │Sentiment │ │   Risk   │  → Parallel Execution             │
-│   │  Agent   │ │  Agent   │                                   │
-│   └──────────┘ └──────────┘                                   │
-│                        │                                        │
-│                        ▼                                        │
-│               ┌──────────────┐                                 │
-│               │  Synthesis   │  → Structured Research Report   │
-│               │    Agent     │                                 │
-│               └──────────────┘                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+
+</div>
 
 ## Tech Stack
 
 | Component | Technology |
 |-----------|------------|
 | **Agent Framework** | CrewAI 1.9.x |
-| **LLM Backend** | NVIDIA NIM (Llama 3.3 70B) |
+| **LLM API** | NVIDIA NIM (Llama 3.3 70B) |
+| **Protocol** | MCP (Model Context Protocol) |
 | **Search API** | Tavily |
 | **Stock Data** | yfinance |
 | **Backend** | FastAPI |
 | **Frontend** | React + TypeScript + Vite |
 | **Deployment** | Docker |
 
+## MCP (Model Context Protocol)
+
+This project uses MCP to define tools that LLM agents can call:
+- **stock_research**: run full research on a stock (calls all 6 agents)
+- **stock_get_price**: fetch current stock price, volume, market cap
+- **stock_get_financial_metrics**: fetch P/E, EPS, revenue, dividends
+- **stock_search_news**: search latest news and company developments
+- **stock_analyze_sentiment**: gauge investor mood from news & social media
+- **stock_analyze_risk**: compute volatility, VaR, risk metrics
+- **stock_get_price_history**: fetch historical price data
+- **stock_parse_query**: extract company name and ticker from natural language
+- **stock_extract_company**: extract company name from query
+- **stock_lookup_ticker**: look up ticker symbol by company name
+
+MCP standardizes how agents communicate with external APIs (yfinance, Tavily).
+
 ## Quick Start
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.12+
 - [uv](https://docs.astral.sh/uv/) (recommended) or pip
 - NVIDIA NIM API key
 - Tavily API key
@@ -137,7 +143,7 @@ curl http://localhost:8000/api/research/abc-123
 ### Python API
 
 ```python
-from backend.orchestrator.mcp_orchestrator import MCPOrchestrator
+from backend.orchestrator.orchestrator import MCPOrchestrator
 
 orchestrator = MCPOrchestrator()
 result = orchestrator.execute_sync("How is Tesla doing?")
@@ -159,8 +165,8 @@ stock-research-agent/
 │   ├── middleware/
 │   │   └── rate_limiter.py        # Rate limiting
 │   ├── orchestrator/
-│   │   ├── mcp_orchestrator.py    # Multi-agent orchestration
-│   │   └── query_analyzer.py      # NLP query parsing
+│   │   ├── orchestrator.py           # Multi-agent orchestration
+│   │   └── query_analyzer.py         # NLP query parsing
 │   ├── crew/
 │   │   └── llm_config.py          # LLM configuration
 │   ├── tools/
@@ -185,6 +191,10 @@ stock-research-agent/
 │   └── vite.config.ts
 ├── tests/
 │   └── test_mcp.py
+├── docs/
+│   ├── API.md
+│   ├── AGENTS.md
+│   └── TOOLS.md
 ├── mcp.json
 ├── docker-compose.yml
 ├── pyproject.toml

@@ -5,10 +5,10 @@ interface ResearchFormProps {
   disabled: boolean
 }
 const exampleQueries = [
-  { label: 'AAPL', query: 'How is Apple stock doing?' },
-  { label: 'NVDA', query: 'NVIDIA latest analysis' },
-  { label: 'TSLA', query: 'Tesla stock forecast' },
-  { label: 'MSFT', query: 'Microsoft news and analysis' },
+  { label: 'Apple', query: 'Apple' },
+  { label: 'NVIDIA', query: 'NVIDIA' },
+  { label: 'Tesla', query: 'Tesla' },
+  { label: 'Microsoft', query: 'Microsoft' },
 ]
 export default function ResearchForm({ onJobCreated, disabled }: ResearchFormProps) {
   const [query, setQuery] = useState('')
@@ -56,7 +56,7 @@ export default function ResearchForm({ onJobCreated, disabled }: ResearchFormPro
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Ask about any stock (e.g., How is Apple doing?)"
+            placeholder="Enter stock name (e.g., apple)"
             disabled={disabled || loading}
             maxLength={500}
             className="w-full pl-12 pr-4 py-4 text-lg bg-primary-50 border-2 border-primary-200 rounded-lg focus:border-accent-blue focus:bg-white transition-all duration-200 placeholder:text-primary-400 disabled:opacity-50 disabled:cursor-not-allowed"

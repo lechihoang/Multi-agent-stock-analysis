@@ -45,10 +45,3 @@ def lookup_ticker_core(query: str) -> Optional[str]:
 @lru_cache(maxsize=256)
 def lookup_ticker(query: str) -> Optional[str]:
     return lookup_ticker_core(query)
-
-
-@tool("Lookup Stock Ticker")
-def lookup_ticker_tool(query: str) -> str:
-    """Lookup stock ticker from company name."""
-    result = lookup_ticker_core(query)
-    return result if result else f"Could not find ticker for: {query}"

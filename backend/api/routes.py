@@ -10,7 +10,7 @@ from backend.models.schemas import (
     JobStatus,
 )
 from backend.middleware.rate_limiter import rate_limiter
-from backend.orchestrator.mcp_orchestrator import MCPOrchestrator
+from backend.orchestrator.orchestrator import MCPOrchestrator
 from backend.orchestrator.query_analyzer import QueryAnalyzer
 
 logger = logging.getLogger(__name__)
@@ -31,7 +31,6 @@ def run_research_task(job_id: str, query: str):
         if result.success:
             jobs[job_id]["status"] = JobStatus.COMPLETED
             jobs[job_id]["ticker"] = result.ticker
-            jobs[job_id]["query_type"] = result.query_type.value
             jobs[job_id]["report"] = result.final_report
             jobs[job_id]["execution_time"] = result.total_execution_time
         else:
@@ -65,7 +64,6 @@ async def create_research(request: ResearchRequest, background_tasks: Background
         "query": request.query,
         "ticker": "",
         "status": JobStatus.PENDING,
-        "query_type": None,
         "report": None,
         "execution_time": None,
         "error": None,
@@ -92,7 +90,6 @@ async def get_research(job_id: str):
         query=job["query"],
         ticker=job.get("ticker", ""),
         status=job["status"],
-        query_type=job.get("query_type"),
         report=job.get("report"),
         execution_time=job.get("execution_time"),
         error=job.get("error"),
@@ -108,7 +105,6 @@ async def analyze_query(request: ResearchRequest):
         return {
             "original_query": intent.original_query,
             "ticker": intent.ticker,
-            "query_type": intent.query_type.value,
             "agents_needed": intent.agents_needed,
         }
     except ValueError as e:
@@ -130,6 +126,3 @@ async def get_rate_limit():
         "remaining": rate_limiter.get_remaining(),
         "reset_in_seconds": int(rate_limiter.get_reset_time()),
     }
-
-
-__all__ = ["router"]

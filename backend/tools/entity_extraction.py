@@ -41,7 +41,7 @@ def extract_company_name_core(query: str) -> Optional[str]:
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a financial entity extraction expert. Extract the company name or stock ticker from the user's query.",
+                    "content": "You are a financial analyst. Given the company name provided by user, return the exact company name. The user may enter a company name in any format (full name, common name, or partial name). Extract and normalize the company name.",
                 },
                 {
                     "role": "user",
@@ -71,13 +71,3 @@ def extract_company_name_core(query: str) -> Optional[str]:
 @lru_cache(maxsize=128)
 def extract_company_name(query: str) -> Optional[str]:
     return extract_company_name_core(query)
-
-
-@tool("Extract Company Name")
-def extract_company_name_tool(query: str) -> str:
-    """Extract company name from query."""
-    result = extract_company_name_core(query)
-    return result if result else "Could not extract company name from query"
-
-
-__all__ = ["extract_company_name", "extract_company_name_tool", "CompanyExtraction"]
