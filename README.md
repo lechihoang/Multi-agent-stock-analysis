@@ -1,10 +1,10 @@
 # Stock Research Agent
 
-AI-powered multi-agent stock research system using **CrewAI** and **NVIDIA NIM**.
+AI-powered multi-agent stock research system using **CrewAI** framework
 
 ## Features
 
-- **Multi-Agent System**: 6 specialized AI agents running in parallel via CrewAI
+- **Multi-Agent System**: 6 specialized AI agents running in parallel 
 - **Natural Language Queries**: ask in plain English like "How is Apple doing?" and the system will understand which company you mean
 - **Structured Outputs**: Type-safe Pydantic models for all agent responses
 - **Real-time Data**: fetch stock prices, financial data from yfinance; search latest news from Tavily API; gather investor discussions from Reddit, Twitter, Stocktwits
